@@ -22,7 +22,49 @@ pipeline {
             sh '''mvn clean package'''
          }
       }
+       stage ('Artifactory configuration') {
+            steps {
+                rtServer (
+                    id: "ARTIFACTORY_SERVER",
+                    url: "http://3.88.42.130:8040/artifactory",
+                    credentialsId: artifactup
+                )
 
+                rtMavenDeployer (
+                    id: "MAVEN_DEPLOYER",
+                    serverId: "ARTIFACTORY_SERVER",
+                    releaseRepo: "repooo",
+                    snapshotRepo: "repooo"
+                )
+
+                rtMavenResolver (
+                    id: "MAVEN_RESOLVER",
+                    serverId: "ARTIFACTORY_SERVER",
+                    releaseRepo: "repooo",
+                    snapshotRepo: "repooo"
+                )
+            }
+        }
+
+        stage ('Exec Maven') {
+            steps {
+                rtMavenRun (
+                    tool: maven, // Tool name from Jenkins configuration
+                    pom: 'maven-example/pom.xml',
+                    goals: 'clean install',
+                    deployerId: "MAVEN_DEPLOYER",
+                    resolverId: "MAVEN_RESOLVER"
+                )
+            }
+        }
+
+        stage ('Publish build info') {
+            steps {
+                rtPublishBuildInfo (
+                    serverId: "ARTIFACTORY_SERVER"
+                )
+            }
+        }
       stage('Build and Push Image') {
          steps {
            sh 'sudo docker image build -t ${REPOSITORY_TAG} .'
